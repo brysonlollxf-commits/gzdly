@@ -1,0 +1,99 @@
+local OrionLib=loadstring(game:HttpGet("https://raw.githubusercontent.com/jensonhirst/Orion/main/source"))()
+local Players=game:GetService("Players")
+local RunService=game:GetService("RunService")
+local UIS=game:GetService("UserInputService")
+local Camera=workspace.CurrentCamera
+local LP=Players.LocalPlayer
+
+local Settings={
+	PCAimbot=false,
+	MobileAimbot=false,
+	SilentAim=false,
+	ESP=false,
+	TeamCheck=true,
+	FOV=150,
+	AimPart="Head"
+}
+
+local Highlights={}
+
+local function valid(plr)
+	if plr==LP then return false end
+	if not plr.Character then return false end
+	if not plr.Character:FindFirstChild("HumanoidRootPart") then return false end
+	if Settings.TeamCheck and plr.Team==LP.Team then return false end
+	return true
+end
+
+local function part(char)
+	if Settings.AimPart=="Head" then return char:FindFirstChild("Head") end
+	if Settings.AimPart=="Torso" then return char:FindFirstChild("HumanoidRootPart") end
+	local parts={"Head","HumanoidRootPart"}
+	return char:FindFirstChild(parts[math.random(1,#parts)])
+end
+
+local function closest()
+	local t,dist=nil,Settings.FOV
+	for _,p in ipairs(Players:GetPlayers()) do
+		if valid(p) then
+			local prt=part(p.Character)
+			if prt then
+				local v,ons=Camera:WorldToViewportPoint(prt.Position)
+				if ons then
+					local d=(Vector2.new(v.X,v.Y)-UIS:GetMouseLocation()).Magnitude
+					if d<dist then dist=d t=prt end
+				end
+			end
+		end
+	end
+	return t
+end
+
+RunService.RenderStepped:Connect(function()
+	if Settings.PCAimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+		local t=closest()
+		if t then Camera.CFrame=CFrame.new(Camera.CFrame.Position,t.Position) end
+	end
+	if Settings.MobileAimbot then
+		local t=closest()
+		if t then Camera.CFrame=CFrame.new(Camera.CFrame.Position,t.Position) end
+	end
+end)
+
+local function addESP(p)
+	if not valid(p) then return end
+	if Highlights[p] then Highlights[p]:Destroy() end
+	local h=Instance.new("Highlight")
+	h.FillColor=Color3.fromRGB(255,0,0)
+	h.OutlineColor=Color3.fromRGB(255,255,255)
+	h.Adornee=p.Character
+	h.Parent=p.Character
+	Highlights[p]=h
+end
+
+local function clearESP()
+	for _,h in pairs(Highlights) do h:Destroy() end
+	table.clear(Highlights)
+end
+
+Players.PlayerAdded:Connect(function(p)
+	p.CharacterAdded:Connect(function()
+		task.wait(1)
+		if Settings.ESP then addESP(p) end
+	end)
+end)
+
+local Window=OrionLib:MakeWindow({Name="Gzdly Hook",SaveConfig=true,ConfigFolder="Gzdly"})
+local Main=Window:MakeTab({Name="Main"})
+local Visual=Window:MakeTab({Name="Visuals"})
+
+Main:AddToggle({Name="PC Aimbot",Callback=function(v)Settings.PCAimbot=v end})
+Main:AddToggle({Name="Mobile Aimbot",Callback=function(v)Settings.MobileAimbot=v end})
+Main:AddToggle({Name="Silent Aim",Callback=function(v)Settings.SilentAim=v end})
+Main:AddDropdown({Name="Hitbox",Default="Head",Options={"Head","Torso","Random"},Callback=function(v)Settings.AimPart=v end})
+
+Visual:AddToggle({Name="ESP",Callback=function(v)Settings.ESP=v if v then for _,p in ipairs(Players:GetPlayers()) do addESP(p) end else clearESP() end end})
+Visual:AddToggle({Name="Team Check",Default=true,Callback=function(v)Settings.TeamCheck=v clearESP() if Settings.ESP then for _,p in ipairs(Players:GetPlayers()) do addESP(p) end end end})
+Visual:AddSlider({Name="FOV",Min=50,Max=500,Default=150,Callback=function(v)Settings.FOV=v end})
+
+OrionLib:Init()
